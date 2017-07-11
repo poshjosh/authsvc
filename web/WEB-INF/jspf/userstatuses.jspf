@@ -1,0 +1,18 @@
+<%@page contentType="text/html" pageEncoding="UTF-8" errorPage="/errorpages/jsperrorpage.jsp"%>
+<%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+
+<jsp:useBean id="mReferenceLoader" scope="request" class="com.authsvc.web.ReferenceLoader"/>
+
+<jsp:setProperty name="mReferenceLoader" property="enumclass" value="com.authsvc.pu.References$userstatus"/>
+
+<c:if test="${mReferenceLoader.mappings != null && 
+              not empty mReferenceLoader.mappings}">
+  <table style="border: 1px solid gray">
+  <c:forEach var="statuspair" items="${mReferenceLoader.mappings}">
+    <tr>
+      <td style="width:50%; padding:0.5em; border: 1px solid gray">${statuspair.key}</td>        
+      <td style="width:50%; padding:0.5em; border: 1px solid gray">${statuspair.value}</td>        
+    </tr>    
+  </c:forEach>
+  </table>
+</c:if>

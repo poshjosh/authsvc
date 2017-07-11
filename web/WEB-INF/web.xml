@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app version="3.0" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd">
+    <description>An authentication service</description>
+    <display-name>Authentication Service</display-name>
+    <context-param>
+        <param-name>productionMode</param-name>
+        <param-value>true</param-value>
+    </context-param>
+    <servlet>
+        <servlet-name>AuthSvc</servlet-name>
+        <servlet-class>com.authsvc.servlets.AuthSvc</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AuthSvc</servlet-name>
+        <url-pattern>/getapptoken</url-pattern>
+        <url-pattern>/deauthorizeuser</url-pattern>
+        <url-pattern>/editappstatus</url-pattern>
+        <url-pattern>/loginapp</url-pattern>
+        <url-pattern>/authenticateapp</url-pattern>
+        <url-pattern>/activateuser</url-pattern>
+        <url-pattern>/deauthorizeapp</url-pattern>
+        <url-pattern>/getusertoken</url-pattern>
+        <url-pattern>/createapp</url-pattern>
+        <url-pattern>/authorizeapp</url-pattern>
+        <url-pattern>/loginuser</url-pattern>
+        <url-pattern>/getapp</url-pattern>
+        <url-pattern>/edituserstatus</url-pattern>
+        <url-pattern>/authenticateuser</url-pattern>
+        <url-pattern>/createuser</url-pattern>
+        <url-pattern>/getuser</url-pattern>
+        <url-pattern>/activateapp</url-pattern>
+        <url-pattern>/authorizeuser</url-pattern>
+        <url-pattern>/requestuserpassword</url-pattern>
+        <url-pattern>/requestapppassword</url-pattern>
+    </servlet-mapping>
+    <session-config>
+        <session-timeout>10</session-timeout>
+    </session-config>
+</web-app>
