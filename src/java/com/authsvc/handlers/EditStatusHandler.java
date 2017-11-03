@@ -2,7 +2,7 @@ package com.authsvc.handlers;
 
 import com.authsvc.AuthException;
 import com.bc.util.XLogger;
-import com.bc.jpa.EntityController;
+import com.bc.jpa.controller.EntityController;
 import java.util.Collections;
 import java.util.Map;
 import java.util.logging.Level;

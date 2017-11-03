@@ -16,7 +16,7 @@ import com.bc.validators.MapValidator;
 import com.bc.validators.ValidationException;
 import com.bc.validators.Validator;
 import com.bc.validators.ValidatorFactory;
-import com.bc.jpa.EntityController;
+import com.bc.jpa.controller.EntityController;
 import com.bc.jpa.fk.EnumReferences;
 import java.io.IOException;
 import java.util.Arrays;
@@ -26,6 +26,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import com.authsvc.ConfigNames;
+import com.authsvc.pu.AuthSvcJpaContext;
+import com.bc.jpa.context.JpaContext;
+import java.util.Objects;
 
 
 /**
@@ -467,6 +470,19 @@ XLogger.getInstance().log(Level.FINER, "Expected: {0}, Found: {1}", this.getClas
             };
         }
         return a_accessViaGetter;
+    }
+    
+    
+    public Userstatus getUserstatus(AuthSettings<U> settings, AuthSvcJpaContext.userstatus userstatusEnum) {
+        
+        final JpaContext factory = WebApp.getInstance().getJpaContext();
+        
+        final EnumReferences refs = factory.getEnumReferences();
+
+        final Userstatus userstatus = (Userstatus)refs.getEntity(userstatusEnum);
+        Objects.requireNonNull(userstatus);
+        
+        return userstatus;
     }
     
     @Override

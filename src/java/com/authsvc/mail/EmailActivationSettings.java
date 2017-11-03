@@ -2,8 +2,8 @@ package com.authsvc.mail;
 
 import com.authsvc.pu.Columns;
 import com.authsvc.pu.entities.App;
-import com.bc.jpa.EntityController;
-import com.bc.jpa.JpaContext;
+import com.bc.jpa.controller.EntityController;
+import com.bc.jpa.context.JpaContext;
 import com.bc.util.XLogger;
 import java.util.HashMap;
 import java.util.Map;

@@ -17,4 +17,5 @@ package com.authsvc.handlers;
 public interface RequestParameters {
     String SEND_REGISTRATION_MAIL = "sendregistrationmail";
     String CREATE = "create";
+    String ACTIVATE_USER = "activateuser";
 }

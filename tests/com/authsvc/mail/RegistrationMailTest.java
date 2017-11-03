@@ -15,7 +15,7 @@ import org.junit.Test;
 import com.authsvc.ConfigNames;
 import com.authsvc.web.ContextListener;
 import com.authsvc.web.WebApp;
-import com.bc.jpa.JpaContext;
+import com.bc.jpa.context.JpaContext;
 import com.bc.mail.config.MailConfig;
 import com.bc.webapptest.WebappSetup;
 import org.junit.AfterClass;

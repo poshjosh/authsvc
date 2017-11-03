@@ -6,7 +6,7 @@ import com.authsvc.pu.Columns;
 import com.authsvc.pu.AuthSvcJpaContext.userstatus;
 import com.authsvc.web.WebApp;
 import com.bc.util.XLogger;
-import com.bc.jpa.EntityController;
+import com.bc.jpa.controller.EntityController;
 import com.bc.jpa.fk.EnumReferences;
 import java.security.GeneralSecurityException;
 import java.util.Date;
@@ -20,6 +20,7 @@ import com.authsvc.mail.EmailActivationSettings;
 import com.bc.mail.EmailBuilder;
 import com.bc.mail.EmailBuilderImpl;
 import com.bc.security.SecurityTool;
+import java.util.Objects;
 
 /**
  * @(#)CreationHandler.java   26-Nov-2014 12:45:26
@@ -95,25 +96,27 @@ public abstract class CreationHandler<U> extends BaseHandler<U, Map> {
     @Override
     protected Map execute(AuthSettings<U> settings) throws AuthException {
         
-        Map<String, Object> formattedInput = this.formatInput(this.getParameters());
+        final Map<String, Object> formattedInput = this.formatInput(this.getParameters());
         
-        EntityController<U, Integer> ec = this.getEntityController();
+        final EntityController<U, Integer> ec = this.getEntityController();
 
-        EnumReferences refs = WebApp.getInstance().getJpaContext().getEnumReferences();
+        final EnumReferences refs = WebApp.getInstance().getJpaContext().getEnumReferences();
+        
         formattedInput.put(Columns.App.datecreated.name(), new Date());
-        Object oval = refs.getId(userstatus.Unactivated);
+        
+        final boolean activateUser = getBoolean(RequestParameters.ACTIVATE_USER, false);        
+        
+        final Object oval = activateUser ? refs.getId(userstatus.Activated) : refs.getId(userstatus.Unactivated);
         Short shval;
         try{
             shval = (Short)oval;
         }catch(ClassCastException e) {
             shval = Short.valueOf(oval.toString());
         }
-        if(shval == null) {
-            throw new NullPointerException();
-        }
+        Objects.requireNonNull(shval);
         formattedInput.put(Columns.App.userstatus.name(), shval);
         
-        Map toCreate = this.getDatabaseFormat(formattedInput);
+        final Map toCreate = this.getDatabaseFormat(formattedInput);
         
         this.createdEntity = ec.persist(toCreate);
 
@@ -124,16 +127,14 @@ public abstract class CreationHandler<U> extends BaseHandler<U, Map> {
 
 XLogger.getInstance().log(Level.FINE, "Successfully created entity: {0}", this.getClass(), createdEntity);
 
-        String paramValue = (String)this.getParameters().get(RequestParameters.SEND_REGISTRATION_MAIL);
-        
-        boolean sendMail = paramValue == null ? false : Boolean.parseBoolean(paramValue.trim());
+        final boolean sendMail = getBoolean(RequestParameters.SEND_REGISTRATION_MAIL, false);
         
         if(sendMail) {
 
             this.sendRegistrationMail();
         }
         
-        Map map = ec.toMap(this.createdEntity);
+        final Map map = ec.toMap(this.createdEntity);
         
         return this.formatOutput(map);
     }
@@ -180,5 +181,10 @@ this.getClass(), to, subject, htmlMsg);
     
     public U getCreatedEntity() {
         return createdEntity;
+    }
+    
+    public boolean getBoolean(String key, boolean defaultValue) {
+        final String paramValue = (String)this.getParameters().get(key);
+        return paramValue == null ? defaultValue : Boolean.parseBoolean(paramValue.trim());
     }
 }

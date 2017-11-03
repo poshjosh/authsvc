@@ -2,7 +2,7 @@ package com.authsvc;
 
 import com.bc.io.CharFileIO;
 import com.bc.util.XLogger;
-import com.bc.jpa.EntityController;
+import com.bc.jpa.controller.EntityController;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -15,8 +15,9 @@ import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
-import com.bc.jpa.JpaContext;
-import com.bc.jpa.JpaMetaData;
+import com.bc.jpa.context.JpaContext;
+import com.bc.jpa.metadata.JpaMetaData;
+import java.util.Set;
 
 
 /**
@@ -43,11 +44,11 @@ public class Installer {
         
         JpaMetaData metaData = jpaContext.getMetaData();
         
-        String [] puNames = metaData.getPersistenceUnitNames();
+        Set<String> puNames = metaData.getPersistenceUnitNames();
         
         Map<String, EntityController> dbs = new HashMap<>();
         for(String puName:puNames) {
-            Class [] puClasses = metaData.getEntityClasses(puName);
+            Set<Class> puClasses = metaData.getEntityClasses(puName);
             for(Class puClass:puClasses) {
                 String dbName = metaData.getDatabaseName(puClass);
                 if(!dbs.containsKey(dbName)) {

@@ -12,7 +12,7 @@ import org.apache.commons.configuration.CompositeConfiguration;
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.PropertiesConfiguration;
-import com.bc.jpa.JpaContext;
+import com.bc.jpa.context.JpaContext;
 import com.bc.mail.config.XMLMailConfig;
 import com.bc.mail.config.dom.DefaultMailDOM;
 import com.bc.security.Encryption;

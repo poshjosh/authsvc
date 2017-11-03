@@ -3,17 +3,20 @@ package com.authsvc.auth;
 import com.authsvc.AuthException;
 import com.authsvc.pu.Columns;
 import com.authsvc.web.WebApp;
-import com.bc.util.XLogger;
-import com.bc.jpa.EntityController;
+import com.bc.jpa.controller.EntityController;
+import com.bc.jpa.EntityUpdater;
 import com.bc.security.SecurityTool;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.persistence.EntityManager;
 
 /**
  * @(#)Authenticator.java   25-Nov-2014 09:46:52
@@ -33,6 +36,8 @@ import java.util.logging.Logger;
  */
 public abstract class Authenticator<U, T> {
 
+    private transient static final Logger logger = Logger.getLogger(Authenticator.class.getName());
+
     public Authenticator() { }
 
     public abstract Class<U> getUserEntityClass();
@@ -47,28 +52,40 @@ public abstract class Authenticator<U, T> {
         
         if(tokenEntity != null) {
             
-            EntityController<T, ?> ec = this.getTokenController();
+            final EntityUpdater updater = this.getTokenController();
             
             final String tokenCol = Columns.Apptoken.token.name();
             final String seriesCol = Columns.Apptoken.seriesid.name();
             
-            boolean validToken = tokenInput.getToken().equals(ec.getValue(tokenEntity, tokenCol));
+            final boolean validToken = tokenInput.getToken().equals(updater.getValue(tokenEntity, tokenCol));
             
-            boolean validSeriesId = tokenInput.getSeriesId().equals(ec.getValue(tokenEntity, seriesCol));
+            final boolean validSeriesId = tokenInput.getSeriesId().equals(updater.getValue(tokenEntity, seriesCol));
             
-XLogger.getInstance().log(Level.FINER, 
-"Valid token: {0}, seriesId: {1}", 
-this.getClass(), validToken, validSeriesId);                
+            logger.finer(() -> "Valid token: "+validToken+", seriesId: "+validSeriesId);                
 
             if(validToken && validSeriesId){
-
-                ec.setValue(tokenEntity, tokenCol, newTokenStr);
                 
-                try{
-                    ec.edit(tokenEntity);
-                }catch(Exception e) {
-                    throw new AuthException("Database error while trying to authenticate. Please try again later", e);
-                }
+                final Function<EntityManager, Optional<T>> editToken = (em) -> {
+                    T found = null;
+                    try{
+                        final Object tokenEntityId = updater.getId(tokenEntity);
+                        found = em.find(this.getTokenEntityClass(), tokenEntityId);
+                        updater.update(tokenEntity, found, false);
+                        updater.setValue(found, tokenCol, newTokenStr);
+                        
+                        found = em.merge(found);
+                        
+                    }catch(RuntimeException e) {
+                        logger.log(Level.WARNING, "Unexpected exception", e);
+                    }
+                    return Optional.ofNullable(found);
+                };
+
+                final EntityManager em = WebApp.getInstance().getJpaContext()
+                        .getEntityManager(this.getTokenEntityClass());
+                WebApp.getInstance().getJpaContext().executeTransaction(
+                        em, editToken).orElseThrow(() -> 
+                        new AuthException("Database error while trying to authenticate. Please try again later"));
 
                 return true;
 
@@ -214,7 +231,8 @@ this.getClass(), validToken, validSeriesId);
         
         EntityController<T, ?> ec = this.getTokenController();
         
-        String referenceColumn = ec.getMetaData().getReferenceColumn(this.getUserEntityClass(), this.getTokenEntityClass());
+        String referenceColumn = WebApp.getInstance().getJpaContext().getMetaData()
+                .getReferenceColumn(this.getUserEntityClass(), this.getTokenEntityClass());
         
         LinkedHashMap parameters = new LinkedHashMap(4, 1.0f);
         parameters.put(Columns.Usertoken.token.name(), tokenStr);

@@ -9,7 +9,7 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title>Send Email</title>
+        <title>${appName} - Send Email</title>
     </head>
     <body>
         <p><b><a href="${pageContext.servletContext.contextPath}/sendmail.jsp">Refresh Page</a></b></p>

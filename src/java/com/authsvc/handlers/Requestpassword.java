@@ -5,7 +5,7 @@ import com.authsvc.pu.Columns;
 import com.authsvc.web.WebApp;
 import com.bc.util.XLogger;
 import com.bc.validators.ValidationException;
-import com.bc.jpa.EntityController;
+import com.bc.jpa.controller.EntityController;
 import com.bc.mail.EmailBuilder;
 import com.bc.mail.EmailBuilderImpl;
 import java.io.IOException;

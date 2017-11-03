@@ -1,7 +1,7 @@
 package com.authsvc.handlers;
 
 import com.authsvc.web.WebApp;
-import com.bc.jpa.JpaUtil;
+import com.bc.jpa.util.JpaUtil;
 import java.lang.reflect.Field;
 import java.security.GeneralSecurityException;
 import java.util.HashMap;

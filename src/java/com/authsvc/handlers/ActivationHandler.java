@@ -10,12 +10,11 @@ import com.authsvc.pu.entities.Userstatus;
 import com.authsvc.web.WebApp;
 import com.bc.util.XLogger;
 import com.bc.validators.ValidationException;
-import com.bc.jpa.EntityController;
-import com.bc.jpa.fk.EnumReferences;
+import com.bc.jpa.controller.EntityController;
 import java.util.Collections;
 import java.util.Map;
 import java.util.logging.Level;
-import com.bc.jpa.JpaContext;
+import com.bc.jpa.context.JpaContext;
 
 
 /**
@@ -78,14 +77,7 @@ public abstract class ActivationHandler<U> extends BaseHandler<U, Object> {
 
         Map<String, Object> where = this.getDatabaseFormat(settings.getParameters());
         
-        EnumReferences refs = factory.getEnumReferences();
-
-        // We do this to ensure the status exists
-        Userstatus userstatus = (Userstatus)refs.getEntity(AuthSvcJpaContext.userstatus.Activated);
-        
-        if(userstatus == null) {
-            throw new NullPointerException();
-        }
+        final Userstatus userstatus = this.getUserstatus(settings, AuthSvcJpaContext.userstatus.Activated);
         
         final String statusCol = this.getStatusColumnName();
 
