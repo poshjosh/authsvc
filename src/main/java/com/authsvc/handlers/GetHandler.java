@@ -1,8 +1,8 @@
 package com.authsvc.handlers;
 
 import com.authsvc.AuthException;
+import com.bc.jpa.functions.GetMapForEntity;
 import com.bc.validators.ValidationException;
-import com.bc.jpa.controller.EntityController;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Map;
@@ -79,11 +79,9 @@ public abstract class GetHandler<U> extends BaseHandler<U, Map> {
                 throw new AuthException("Invalid login credentials");
             }
             
-            EntityController<U, Integer> ec = this.getEntityController();
+            final Map userMap = new GetMapForEntity(false).apply(user);
             
-            Map map = ec.toMap(user, false);
-            
-            out = creationHandler.formatOutput(map);
+            out = creationHandler.formatOutput(userMap);
             
             this.editStatus(settings);
         }

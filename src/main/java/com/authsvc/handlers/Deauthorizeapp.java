@@ -3,7 +3,7 @@ package com.authsvc.handlers;
 import com.authsvc.AuthException;
 import com.authsvc.auth.Authenticator;
 import com.authsvc.pu.Columns;
-import com.authsvc.pu.AuthSvcJpaContext.userstatus;
+import com.authsvc.pu.Enums.userstatus;
 import com.authsvc.pu.entities.App;
 import com.authsvc.pu.entities.Apptoken;
 import com.bc.validators.ValidationException;

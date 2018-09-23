@@ -4,7 +4,7 @@
     <display-name>Authentication Service</display-name>
     <context-param>
         <param-name>productionMode</param-name>
-        <param-value>true</param-value>
+        <param-value>false</param-value>
     </context-param>
     <servlet>
         <servlet-name>AuthSvc</servlet-name>

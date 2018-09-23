@@ -3,7 +3,6 @@ package com.authsvc.handlers;
 import com.authsvc.AuthException;
 import com.authsvc.web.WebApp;
 import com.bc.validators.ValidationException;
-import com.bc.jpa.controller.EntityController;
 import com.bc.mail.EmailBuilder;
 import com.bc.mail.EmailBuilderImpl;
 import java.io.IOException;
@@ -18,6 +17,7 @@ import com.authsvc.ConfigNames;
 import com.authsvc.pu.Columns;
 import com.authsvc.pu.entities.App;
 import com.bc.functions.GetSingle;
+import com.bc.jpa.functions.GetMapForEntity;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
@@ -54,13 +54,14 @@ public abstract class Requestpassword<U> extends BaseHandler<U, Boolean> {
             LOG.log(Level.FINER, "Parameters: {0}", view);
         }
         
-        final EntityController<U, Integer> ec = this.getEntityController();
-        
-        final List<U> found = ec.select(where, "AND"); 
+        final List<U> found = this.getJpaObjectFactory()
+                .getDaoForSelect(this.getEntityClass())
+                .where(where)
+                .getResultsAndClose();
         
         final U user = new GetSingle<U>().apply(found);
         
-        final Map map = ec.toMap(user);
+        final Map map = new GetMapForEntity(false).apply(user);
 
         final String recipient =(String)map.get(Columns.Appuser.emailaddress.name());
         final String password = (String)map.get(Columns.Appuser.password.name());
@@ -122,7 +123,7 @@ public abstract class Requestpassword<U> extends BaseHandler<U, Boolean> {
     
     public App getAppOrDefault(Map<String, Object> params, App outputIfNone) {
         final Integer id = (Integer)params.get(Columns.App.appid.name());
-        final App app = id == null ? null : this.getEntityController(App.class).find(id);
+        final App app = id == null ? null : this.getJpaObjectFactory().getDao().findAndClose(App.class, id);
         return app == null ? outputIfNone : app;
     }
 

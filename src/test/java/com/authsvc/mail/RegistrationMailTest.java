@@ -15,7 +15,7 @@ import java.util.Properties;
 import org.junit.Test;
 import com.authsvc.ConfigNames;
 import com.authsvc.web.WebApp;
-import com.bc.jpa.context.JpaContext;
+import com.bc.jpa.dao.JpaObjectFactory;
 import com.bc.mail.config.MailConfig;
 import com.bc.webapptest.WebappSetup;
 import org.junit.AfterClass;
@@ -84,9 +84,9 @@ public class RegistrationMailTest {
         
         appuser.setAppid(app);
         
-        JpaContext jpaContext = WebApp.getInstance().getJpaContext();
+        final JpaObjectFactory jpaContext = WebApp.getInstance().getJpaObjectFactory();
         
-        EmailActivationSettings settings = new EmailActivationSettings(jpaContext, appuser); 
+        final EmailActivationSettings settings = new EmailActivationSettings(jpaContext, appuser); 
         
         RegistrationMail<Appuser> email = new RegistrationMail(
                 emailBuilder, 

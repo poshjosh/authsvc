@@ -2,8 +2,7 @@ package com.authsvc.mail;
 
 import com.authsvc.pu.Columns;
 import com.authsvc.pu.entities.App;
-import com.bc.jpa.controller.EntityController;
-import com.bc.jpa.context.JpaContext;
+import com.bc.jpa.dao.JpaObjectFactory;
 import java.util.logging.Logger;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,13 +25,14 @@ import java.util.logging.Level;
  * @since    2.0
  */
 public class EmailActivationSettings<U> extends EmailActivationNames<U> {
+    
     private transient static final Logger LOG = Logger.getLogger(EmailActivationSettings.class.getName());
     
     private final U user;
     
-    private final JpaContext jpaContext;
+    private final JpaObjectFactory jpaContext;
     
-    public EmailActivationSettings(JpaContext jpaContext, U user) { 
+    public EmailActivationSettings(JpaObjectFactory jpaContext, U user) { 
         this.jpaContext = Objects.requireNonNull(jpaContext);
         this.user = Objects.requireNonNull(user);
     }
@@ -59,10 +59,10 @@ public class EmailActivationSettings<U> extends EmailActivationNames<U> {
             if(column.equals(Columns.Appuser.appid.name())) {
                 App app = (App)value;
                 value = app.getAppid();
-if(LOG.isLoggable(Level.FINER)){
-LOG.log(Level.FINER, "For column: {0} converted {1} to {2}",
-new Object[]{ column,  app,  value});
-}
+                if(LOG.isLoggable(Level.FINER)){
+                    LOG.log(Level.FINER, "For column: {0} converted {1} to {2}",
+                            new Object[]{ column,  app,  value});
+                }
             }
             
             map.put(column, value);
@@ -88,16 +88,9 @@ new Object[]{ column,  app,  value});
     }
     
     public Object getValue(String columnName) {
-        EntityController ec = this.getEntityController();
-        return ec.getValue(this.user, columnName);
-    }
-    
-    private EntityController<U, Integer> ec_accessViaGetter;
-    private EntityController<U, Integer> getEntityController() {
-        if(ec_accessViaGetter == null) {
-            ec_accessViaGetter = this.jpaContext.getEntityController(this.getEntityClass(), Integer.class);
-        }
-        return ec_accessViaGetter;
+        return jpaContext
+                .getEntityMemberAccess(this.getEntityClass())
+                .getValue(user, columnName);
     }
     
     @Override

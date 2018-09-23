@@ -4,15 +4,11 @@ import com.authsvc.AuthException;
 import com.authsvc.mail.EmailActivationNames;
 import com.authsvc.pu.Columns;
 import com.authsvc.pu.Columns.App;
-import com.authsvc.pu.AuthSvcJpaContext;
 import com.authsvc.pu.entities.Appuser;
 import com.authsvc.pu.entities.Userstatus;
-import com.authsvc.web.WebApp;
 import com.bc.validators.ValidationException;
-import com.bc.jpa.controller.EntityController;
-import java.util.Collections;
 import java.util.Map;
-import com.bc.jpa.context.JpaContext;
+import com.bc.jpa.dao.JpaObjectFactory;
 import java.util.logging.Logger;
 
 
@@ -65,35 +61,36 @@ public abstract class ActivationHandler<U> extends BaseHandler<U, Object> {
 
         super.validate(parameters);
 
-        this.validateUser(AuthSvcJpaContext.userstatus.Unactivated);
+        this.validateUser(com.authsvc.pu.Enums.userstatus.Unactivated);
     }
     
     @Override
     protected Object execute(AuthSettings<U> settings) 
             throws AuthException {
 
-        JpaContext factory = WebApp.getInstance().getJpaContext();
-        
-        EntityController<U, ?> ec = factory.getEntityController(this.getEntityClass());
-
         Map<String, Object> where = this.getDatabaseFormat(settings.getParameters());
         
-        final Userstatus userstatus = this.getUserstatus(settings, AuthSvcJpaContext.userstatus.Activated);
+        final Userstatus userstatus = this.getUserstatus(settings, com.authsvc.pu.Enums.userstatus.Activated);
         
-        final String statusCol = this.getStatusColumnName();
-
-        final Map update = Collections.singletonMap(statusCol, userstatus.getUserstatusid());
-            
+        final JpaObjectFactory puContext = this.getJpaObjectFactory();
+        
         try{
             
-            LOG.finer(() -> "Where: "+where+"\nUpdate: "+update);
+            LOG.finer(() -> "Where: "+where+"\nSET " + getStatusColumnName() + '=' + userstatus);
 
-            final long count = ec.count(where);
+            final Long count = puContext.getDaoForSelect(Long.class)
+                    .from(this.getEntityClass())
+                    .where(where)
+                    .count()
+                    .getSingleResultAndClose();
             
             if(count == 0) {
                 throw new RuntimeException("Not found. Record with values: "+where);
             }else if(count == 1) {
-                ec.update(where, update);
+                puContext.getDaoForUpdate(this.getEntityClass())
+                        .where(where)
+                        .set(getStatusColumnName(), userstatus)
+                        .executeUpdateCommitAndClose();
             }else {
                 throw new RuntimeException("Trying to update more than one record, when only one should be updated. Parameters: "+where);
             }

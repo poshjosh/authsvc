@@ -3,11 +3,9 @@ package com.authsvc.handlers;
 import com.authsvc.AuthException;
 import com.authsvc.mail.RegistrationMail;
 import com.authsvc.pu.Columns;
-import com.authsvc.pu.AuthSvcJpaContext.userstatus;
+import com.authsvc.pu.Enums.userstatus;
 import com.authsvc.web.WebApp;
 import java.util.logging.Logger;
-import com.bc.jpa.controller.EntityController;
-import com.bc.jpa.fk.EnumReferences;
 import java.security.GeneralSecurityException;
 import java.util.Date;
 import java.util.List;
@@ -17,10 +15,13 @@ import javax.mail.internet.InternetAddress;
 import org.apache.commons.mail.EmailException;
 import com.authsvc.ConfigNames;
 import com.authsvc.mail.EmailActivationSettings;
+import com.authsvc.pu.entities.Userstatus;
+import com.bc.jpa.dao.JpaObjectFactory;
+import com.bc.jpa.dao.util.EntityMemberAccess;
+import com.bc.jpa.functions.GetMapForEntity;
 import com.bc.mail.EmailBuilder;
 import com.bc.mail.EmailBuilderImpl;
 import com.bc.security.SecurityTool;
-import java.util.Objects;
 
 /**
  * @(#)CreationHandler.java   26-Nov-2014 12:45:26
@@ -37,6 +38,7 @@ import java.util.Objects;
  * @since    2.0
  */
 public abstract class CreationHandler<U> extends BaseHandler<U, Map> {
+    
     private transient static final Logger LOG = Logger.getLogger(CreationHandler.class.getName());
 
     private U createdEntity;
@@ -99,47 +101,50 @@ public abstract class CreationHandler<U> extends BaseHandler<U, Map> {
         
         final Map<String, Object> formattedInput = this.formatInput(this.getParameters());
         
-        final EntityController<U, Integer> ec = this.getEntityController();
-
-        final EnumReferences refs = WebApp.getInstance().getJpaContext().getEnumReferences();
-        
         formattedInput.put(Columns.App.datecreated.name(), new Date());
         
-        final boolean activateUser = getBoolean(RequestParameters.ACTIVATE_USER, false);        
+        final boolean activateUser = getBoolean(RequestParameters.ACTIVATE_USER, false);    
         
-        final Object oval = activateUser ? refs.getId(userstatus.Activated) : refs.getId(userstatus.Unactivated);
-        Short shval;
-        try{
-            shval = (Short)oval;
-        }catch(ClassCastException e) {
-            shval = Short.valueOf(oval.toString());
-        }
-        Objects.requireNonNull(shval);
-        formattedInput.put(Columns.App.userstatus.name(), shval);
+        final String statusColumnName = Columns.Appuser.userstatus.name();
+        final String statusColumnValue = activateUser ? userstatus.Activated.name() : userstatus.Unactivated.name();
+        
+        final JpaObjectFactory puContext = this.getJpaObjectFactory();
+        
+//        final Userstatus userstatus = puContext.getDaoForSelect(Userstatus.class)
+//                .where(Columns.App.username.name(), statusColumnValue)
+//                .getSingleResultAndClose();
+        final Userstatus userstatus = puContext.getDaoForSelect(Userstatus.class)
+                .where(statusColumnName, statusColumnValue)
+                .getSingleResultAndClose();
+
+        formattedInput.put(statusColumnName, userstatus);
         
         final Map toCreate = this.getDatabaseFormat(formattedInput);
         
-        this.createdEntity = ec.persist(toCreate);
+        final EntityMemberAccess<U, Object> memberAccess = puContext.getEntityMemberAccess(this.getEntityClass());
+        try{
+            this.createdEntity = memberAccess.create(toCreate, true);
+        }catch(Exception e) {
+            throw new AuthException("Failed to create user", e);
+        }
+
+        puContext.getDao().persistAndClose(this.createdEntity);
 
         if(this.createdEntity == null) {
-
             throw new AuthException("Failed to create user");
         }
 
-if(LOG.isLoggable(Level.FINE)){
-LOG.log(Level.FINE, "Successfully created entity: {0}", createdEntity);
-}
+        LOG.log(Level.FINE, "Successfully created entity: {0}", createdEntity);
 
         final boolean sendMail = getBoolean(RequestParameters.SEND_REGISTRATION_MAIL, false);
         
         if(sendMail) {
-
             this.sendRegistrationMail();
         }
         
-        final Map map = ec.toMap(this.createdEntity);
+        final Map entityMap = new GetMapForEntity(false).apply(this.createdEntity);
         
-        return this.formatOutput(map);
+        return this.formatOutput(entityMap);
     }
     
     protected void sendRegistrationMail() throws AuthException{
@@ -156,7 +161,7 @@ LOG.log(Level.FINE, "Successfully created entity: {0}", createdEntity);
 //            emailBuilder = new EmailBuilderImpl(WebApp.getInstance().getMailConfig());
             emailBuilder = new EmailBuilderImpl();
             EmailActivationSettings settings = new EmailActivationSettings(
-                    WebApp.getInstance().getJpaContext(), this.getUser());
+                    this.getJpaObjectFactory(), this.getUser());
             final String responsePath = WebApp.getInstance().getRegistrationMailResponseServletPath(this);
             
             email = new RegistrationMail<>(
@@ -174,10 +179,10 @@ LOG.log(Level.FINE, "Successfully created entity: {0}", createdEntity);
                 List<InternetAddress> to = email.getToAddresses();
                 String subject = email.getSubject();
                 String htmlMsg = email.getHtmlMsg();
-if(LOG.isLoggable(Level.INFO)){
-LOG.log(Level.INFO, "================= THE FOLLOWING EMAIL FAILED TO SEND ====================\nTo: {0}\nSubject: {1}\n{2}", 
-new Object[]{ to,  subject,  htmlMsg});
-}
+                if(LOG.isLoggable(Level.WARNING)){
+                    LOG.log(Level.WARNING, "================= THE FOLLOWING EMAIL FAILED TO SEND ====================\nTo: {0}\nSubject: {1}\n{2}", 
+                    new Object[]{to, subject, htmlMsg});
+                }
             }
             
             throw new AuthException("Error sending resistration mail", e);

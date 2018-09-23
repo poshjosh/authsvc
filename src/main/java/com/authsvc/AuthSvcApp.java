@@ -1,6 +1,6 @@
 package com.authsvc;
 
-import com.authsvc.pu.AuthSvcJpaContext;
+import com.authsvc.pu.AuthsvcJpaObjectFactory;
 import com.bc.mail.config.MailConfig;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -10,9 +10,11 @@ import org.apache.commons.configuration.CompositeConfiguration;
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.PropertiesConfiguration;
-import com.bc.jpa.context.JpaContext;
+import com.bc.jpa.dao.JpaObjectFactory;
 import com.bc.security.Encryption;
 import com.bc.security.SecurityProvider;
+import com.bc.jpa.dao.sql.MySQLDateTimePatterns;
+import com.bc.jpa.dao.sql.SQLDateTimePatterns;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -43,7 +45,7 @@ public class AuthSvcApp extends Installer {
     
     private MailConfig mailConfig;
     
-    private JpaContext jpaContext;
+    private JpaObjectFactory jpaObjectFactory;
     
     public void init(String defaultPropertiesFilename, String propertiesFilename) 
             throws IOException, ConfigurationException {
@@ -88,7 +90,6 @@ public class AuthSvcApp extends Installer {
             
             LOG.log(Level.FINER, "Creating security tool");
 
-            
             this.encryption = SecurityProvider.DEFAULT.getEncryption(
                     this.config.getString(ConfigNames.ALGORITH),
                     this.config.getString(ConfigNames.ENCRYPTION_KEY));
@@ -100,9 +101,14 @@ public class AuthSvcApp extends Installer {
         final String uriStr = this.config.getString(ConfigNames.PERSISTENCE_CONFIG_URI);
         try{
             final URI persistenceConfigUri = uriStr == null ? null : new URI(uriStr);
-            this.jpaContext = persistenceConfigUri == null ? 
-                    new AuthSvcJpaContext() :
-                    new AuthSvcJpaContext(persistenceConfigUri);
+            final SQLDateTimePatterns dateTimePatterns = new MySQLDateTimePatterns();
+//            final AuthsvcJpaContext persistenceContext = persistenceConfigUri == null ? 
+//                    new AuthsvcJpaContext(dateTimePatterns) :
+//                    new AuthsvcJpaContext(persistenceConfigUri, dateTimePatterns);
+//            this.jpaObjectFactory = persistenceContext.getDefaultContext();
+            this.jpaObjectFactory = persistenceConfigUri == null ? 
+                    new AuthsvcJpaObjectFactory(dateTimePatterns) :
+                    new AuthsvcJpaObjectFactory(persistenceConfigUri, dateTimePatterns);
         }catch(URISyntaxException e) {
             throw new RuntimeException("Invalid URI syntax: "+uriStr, e);
         }
@@ -177,7 +183,7 @@ public class AuthSvcApp extends Installer {
         return encryption;
     }
 
-    public JpaContext getJpaContext() {
-        return jpaContext;
+    public JpaObjectFactory getJpaObjectFactory() {
+        return jpaObjectFactory;
     }
 }

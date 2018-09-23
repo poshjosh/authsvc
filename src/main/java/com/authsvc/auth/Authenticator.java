@@ -3,12 +3,10 @@ package com.authsvc.auth;
 import com.authsvc.AuthException;
 import com.authsvc.pu.Columns;
 import com.authsvc.web.WebApp;
-import com.bc.jpa.controller.EntityController;
 import com.bc.security.SecurityTool;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,7 +14,12 @@ import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.persistence.EntityManager;
-import com.bc.jpa.EntityMemberAccess;
+import com.bc.jpa.dao.util.EntityReference;
+import com.bc.jpa.dao.JpaObjectFactory;
+import com.bc.jpa.dao.functions.ExecuteEntityTransaction;
+import com.bc.jpa.dao.functions.GetIdAttribute;
+import com.bc.jpa.dao.util.EntityMemberAccess;
+import java.util.List;
 
 /**
  * @(#)Authenticator.java   25-Nov-2014 09:46:52
@@ -36,7 +39,7 @@ import com.bc.jpa.EntityMemberAccess;
  */
 public abstract class Authenticator<U, T> {
 
-    private transient static final Logger logger = Logger.getLogger(Authenticator.class.getName());
+    private transient static final Logger LOG = Logger.getLogger(Authenticator.class.getName());
 
     public Authenticator() { }
 
@@ -52,40 +55,42 @@ public abstract class Authenticator<U, T> {
         
         if(tokenEntity != null) {
             
-            final EntityMemberAccess updater = this.getTokenController();
+            final JpaObjectFactory puContext = WebApp.getInstance().getJpaObjectFactory();
+            final EntityMemberAccess entityMembers = puContext.getEntityMemberAccess(this.getTokenEntityClass());
             
             final String tokenCol = Columns.Apptoken.token.name();
             final String seriesCol = Columns.Apptoken.seriesid.name();
             
-            final boolean validToken = tokenInput.getToken().equals(updater.getValue(tokenEntity, tokenCol));
+            final boolean validToken = tokenInput.getToken().equals(entityMembers.getValue(tokenEntity, tokenCol));
             
-            final boolean validSeriesId = tokenInput.getSeriesId().equals(updater.getValue(tokenEntity, seriesCol));
+            final boolean validSeriesId = tokenInput.getSeriesId().equals(entityMembers.getValue(tokenEntity, seriesCol));
             
-            logger.finer(() -> "Valid token: "+validToken+", seriesId: "+validSeriesId);                
+            LOG.finer(() -> "Valid token: "+validToken+", seriesId: "+validSeriesId);                
 
             if(validToken && validSeriesId){
                 
                 final Function<EntityManager, Optional<T>> editToken = (em) -> {
                     T found = null;
                     try{
-                        final Object tokenEntityId = updater.getId(tokenEntity);
+                        final Object tokenEntityId = entityMembers.getId(tokenEntity);
                         found = em.find(this.getTokenEntityClass(), tokenEntityId);
-                        updater.update(tokenEntity, found, false);
-                        updater.setValue(found, tokenCol, newTokenStr);
+                        entityMembers.update(tokenEntity, found, false);
+                        entityMembers.setValue(found, tokenCol, newTokenStr);
                         
                         found = em.merge(found);
                         
                     }catch(RuntimeException e) {
-                        logger.log(Level.WARNING, "Unexpected exception", e);
+                        LOG.log(Level.WARNING, "Unexpected exception", e);
                     }
                     return Optional.ofNullable(found);
                 };
 
-                final EntityManager em = WebApp.getInstance().getJpaContext()
-                        .getEntityManager(this.getTokenEntityClass());
-                WebApp.getInstance().getJpaContext().executeTransaction(
-                        em, editToken).orElseThrow(() -> 
-                        new AuthException("Database error while trying to authenticate. Please try again later"));
+                final JpaObjectFactory jpaContext = WebApp.getInstance().getJpaObjectFactory();
+                
+                final ExecuteEntityTransaction<Optional<T>> executor = 
+                        new ExecuteEntityTransaction<>(jpaContext);
+                executor.apply(editToken).orElseThrow(() -> new AuthException(
+                        "Database error while trying to authenticate. Please try again later"));
 
                 return true;
 
@@ -134,16 +139,17 @@ public abstract class Authenticator<U, T> {
         // Extract the user's details using the emailAddress 
         // Login the user with the emailAddress
         //
-        EntityController<T, ?> ec = this.getTokenController();
-        
         Map<String, Object> where = new HashMap<>(2, 1.0f);
         where.put(Columns.Usertoken.seriesid.name(), tokenInput.getSeriesId());
         where.put(Columns.Usertoken.token.name(), tokenInput.getToken());
-        
-        List<T> found = ec.select(where, null, -1, -1);
+
+        final JpaObjectFactory puContext = WebApp.getInstance().getJpaObjectFactory();
+        final List<T> found = puContext.getDaoForSelect(this.getTokenEntityClass())
+                .where(Columns.Usertoken.seriesid.name(), tokenInput.getSeriesId())
+                .and().where(Columns.Usertoken.token.name(), tokenInput.getToken())
+                .getResultsAndClose();
         
         T tokenEntity;
-        
         if(found == null || found.isEmpty()) {
             tokenEntity = null;
         }else if(found.size() == 1){
@@ -229,12 +235,12 @@ public abstract class Authenticator<U, T> {
             String seriesId, 
             U authuser) {
         
-        EntityController<T, ?> ec = this.getTokenController();
+        final JpaObjectFactory puContext = WebApp.getInstance().getJpaObjectFactory();
         
-        String referenceColumn = WebApp.getInstance().getJpaContext().getMetaData()
-                .getReferenceColumn(this.getUserEntityClass(), this.getTokenEntityClass());
+        final EntityReference er = puContext.getEntityReference();
+        final String referenceColumn = er.getReferenceColumn(this.getUserEntityClass(), this.getTokenEntityClass());
         
-        LinkedHashMap parameters = new LinkedHashMap(4, 1.0f);
+        final LinkedHashMap parameters = new LinkedHashMap(4, 1.0f);
         parameters.put(Columns.Usertoken.token.name(), tokenStr);
         parameters.put(Columns.Usertoken.seriesid.name(), seriesId);
         parameters.put(referenceColumn, authuser);
@@ -242,11 +248,18 @@ public abstract class Authenticator<U, T> {
         
         try{
             
-            return ec.insert(parameters) == 1;
+            final T tokenEntity = puContext.getEntityMemberAccess(this.getTokenEntityClass())
+                    .create(parameters, true);
+            
+            puContext.getDao().persistAndClose(tokenEntity);
+            
+            return true;
             
         }catch(Exception e) {
             
-            Logger.getLogger(this.getClass().getName()).log(Level.WARNING, "Failed to create record for table: "+ec.getTableName()+" using parameters: "+parameters, e);
+            LOG.log(Level.WARNING, "Failed to create record for entity: " + 
+                    this.getTokenEntityClass().getSimpleName() + 
+                    " using parameters: "+parameters, e);
             
             return false;
         }
@@ -254,29 +267,25 @@ public abstract class Authenticator<U, T> {
 
     private int deleteAuthUserToken(U authuser) {
         
-        String idColumnName = this.getUserController().getIdColumnName();
+        final JpaObjectFactory puContext = WebApp.getInstance().getJpaObjectFactory();
         
-        EntityController<T, ?> ec = this.getTokenController();
+        final String idColumnName = new GetIdAttribute(puContext.getEntityManagerFactory())
+                .apply(this.getUserEntityClass(), Integer.class).getName();
         
-        int updated = ec.delete(idColumnName, authuser);
-            
+        final int updated = puContext.getDaoForDelete(this.getTokenEntityClass())
+                .where(idColumnName, authuser)
+                .executeUpdateCommitAndClose();
+        
         return updated;
     }
 
     private int deleteSeries(String seriesId) {
         
-        EntityController<T, ?> ec = this.getTokenController();
-        
-        int updated = ec.delete(Columns.Usertoken.seriesid.name(), seriesId);
+        final int updated = WebApp.getInstance().getJpaObjectFactory()
+                .getDaoForDelete(this.getTokenEntityClass())
+                .where(Columns.Usertoken.seriesid.name(), seriesId)
+                .executeUpdateCommitAndClose();
             
         return updated;
-    }
-    
-    protected EntityController<U, ?> getUserController() {
-        return WebApp.getInstance().getJpaContext().getEntityController(this.getUserEntityClass());
-    }
-    
-    protected EntityController<T, ?> getTokenController() {
-        return WebApp.getInstance().getJpaContext().getEntityController(this.getTokenEntityClass());
     }
 }

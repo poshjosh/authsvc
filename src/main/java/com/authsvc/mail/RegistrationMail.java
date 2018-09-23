@@ -36,7 +36,7 @@ public class RegistrationMail<U> extends HtmlEmail {
     public RegistrationMail(String appName, U user, String responseServletPath) throws EmailException {
         
         this(new EmailBuilderImpl(WebApp.getInstance().getMailConfig()), appName, 
-                new EmailActivationSettings(WebApp.getInstance().getJpaContext(), user), responseServletPath);
+                new EmailActivationSettings(WebApp.getInstance().getJpaObjectFactory(), user), responseServletPath);
     }
         
     public RegistrationMail(

@@ -4,7 +4,7 @@ import com.authsvc.AuthException;
 import com.authsvc.auth.Authenticator;
 import com.authsvc.auth.SecretToken;
 import com.authsvc.pu.Columns;
-import com.authsvc.pu.AuthSvcJpaContext.userstatus;
+import com.authsvc.pu.Enums.userstatus;
 import com.authsvc.pu.entities.App;
 import com.authsvc.pu.entities.Apptoken;
 import com.authsvc.pu.entities.Appuser;
@@ -16,8 +16,6 @@ import com.bc.validators.MapValidator;
 import com.bc.validators.ValidationException;
 import com.bc.validators.Validator;
 import com.bc.validators.ValidatorFactory;
-import com.bc.jpa.controller.EntityController;
-import com.bc.jpa.fk.EnumReferences;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -26,8 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import com.authsvc.ConfigNames;
-import com.authsvc.pu.AuthSvcJpaContext;
-import com.bc.jpa.context.JpaContext;
+import com.authsvc.pu.Enums;
+import com.bc.jpa.dao.JpaObjectFactory;
 import java.util.Objects;
 
 
@@ -47,6 +45,7 @@ import java.util.Objects;
  * @since    2.0
  */
 public abstract class BaseHandler<U, R> implements AuthHandler<U, R>{
+
     private transient static final Logger LOG = Logger.getLogger(BaseHandler.class.getName());
 
     private U user;
@@ -146,10 +145,13 @@ public abstract class BaseHandler<U, R> implements AuthHandler<U, R>{
         
         Map<String, Object> toFind = this.getDatabaseInput(searchColumns);
         
-if(LOG.isLoggable(Level.FINER)){
-LOG.log(Level.FINER, "Entity class: {0}, Search columns: {1}\nDatabase params: {2}", 
-new Object[]{ entityClass.getName(),  searchColumns==null?null:Arrays.toString(searchColumns),  toFind});
-}
+        if(LOG.isLoggable(Level.FINE)){
+            LOG.log(Level.FINE, "Entity class: {0}, Search columns: {1}\nDatabase params: {2}", 
+            new Object[]{ 
+                entityClass.getName(),  
+                searchColumns==null?null:Arrays.toString(searchColumns),  
+                toFind});
+        }
         
         this.user = this.find(entityClass, toFind);
         
@@ -165,7 +167,7 @@ new Object[]{ entityClass.getName(),  searchColumns==null?null:Arrays.toString(s
             userstatus targetStatus) 
             throws ValidationException {
 
-        String key = this.getUserIdentifier();
+        final String key = this.getUserIdentifier();
         
         this.user = this.findUser();
         
@@ -177,30 +179,29 @@ new Object[]{ entityClass.getName(),  searchColumns==null?null:Arrays.toString(s
             
             if(targetStatus != null) {
                 
-                EnumReferences refs = WebApp.getInstance().getJpaContext().getEnumReferences();
+                final JpaObjectFactory puContext = this.getJpaObjectFactory();
                 
-                String col = Columns.App.userstatus.name();
+                final String col = Columns.App.userstatus.name();
+               
+                final Userstatus targetEntity = puContext.getDaoForSelect(Userstatus.class)
+                        .where(col, targetStatus.name())
+                        .getSingleResultAndClose();
                 
-                Userstatus foundEntity = (Userstatus)this.getEntityController().getValue(user, col);
+                final Userstatus foundEntity = (Userstatus)puContext
+                        .getEntityMemberAccess(this.getEntityClass()).getValue(user, col);
                 
-if(LOG.isLoggable(Level.FINER)){
-LOG.log(Level.FINER, "Fetching enum for: {0}={1}",new Object[]{ col,  foundEntity});
-}
+                if(LOG.isLoggable(Level.FINER)){
+                    LOG.log(Level.FINER, "Expected: {0}, found: {1}", new Object[]{ this.getClass(), targetEntity, foundEntity});
+                }
 
-                Enum foundStatus = refs.getEnum(Columns.App.userstatus.name(), foundEntity.getUserstatusid());
-                
-if(LOG.isLoggable(Level.FINER)){
-LOG.log(Level.FINER, "Expected: {0}, found: {1}", new Object[]{ this.getClass(),  targetStatus,  foundStatus});
-}
-
-                if(!foundStatus.equals(targetStatus)) {
+                if(!foundEntity.equals(targetEntity)) {
                     
                     // NOTE This
                     //
                     user = null;
                     
                     StringBuilder builder = new StringBuilder();
-                    builder.append(key).append(" status: ").append(foundStatus);
+                    builder.append(key).append(" status: ").append(foundEntity.getUserstatus());
                     builder.append(". Only ").append(targetStatus).append(' ');
                     builder.append(key).append("s may perform the request operation");
                     throw new ValidationException(builder.toString());
@@ -299,7 +300,15 @@ LOG.log(Level.FINER, "Expected: {0}, found: {1}", new Object[]{ this.getClass(),
             throw new UnsupportedOperationException();
         }
         
-        List<X> found = this.getEntityController(entityClass).select(whereParameters, null, -1, -1);
+        final JpaObjectFactory puContext = this.getJpaObjectFactory();
+        
+        LOG.finer(() -> "Where: " + whereParameters);
+        
+        final List<X> found = puContext.getDaoForSelect(entityClass)
+                .where(whereParameters)
+                .getResultsAndClose();
+        
+        LOG.fine(() -> "Found: " + found);
         
         X output;
         if(found == null || found.isEmpty()) {
@@ -318,7 +327,11 @@ LOG.log(Level.FINER, "Expected: {0}, found: {1}", new Object[]{ this.getClass(),
         Map<String, Object> where = Collections.singletonMap(
                 columnName, columnValue);
         
-        List<X> found = this.getEntityController(entityClass).select(where, null, -1, -1);
+        final JpaObjectFactory puContext = this.getJpaObjectFactory();
+        
+        final List<X> found = puContext.getDaoForSelect(entityClass)
+                .where(where)
+                .getResultsAndClose();
         
         X output;
         if(found == null || found.isEmpty()) {
@@ -442,18 +455,6 @@ LOG.log(Level.FINER, "Expected: {0}, found: {1}", new Object[]{ this.getClass(),
         return val;
     }
 
-    private EntityController<U, Integer> ec_accessViaGetter;
-    public EntityController<U, Integer> getEntityController() {
-        if(ec_accessViaGetter == null) {
-            ec_accessViaGetter = this.getEntityController(this.getEntityClass());
-        }
-        return ec_accessViaGetter;
-    }
-    
-    public <X> EntityController<X, Integer> getEntityController(Class<X> entityClass) {
-        return WebApp.getInstance().getJpaContext().getEntityController(entityClass, Integer.class);
-    }
-
     private transient Authenticator<U, ?> a_accessViaGetter;
     protected Authenticator<U, ?> getAuthenticator() {
         if(a_accessViaGetter == null) {
@@ -480,16 +481,20 @@ LOG.log(Level.FINER, "Expected: {0}, found: {1}", new Object[]{ this.getClass(),
     }
     
     
-    public Userstatus getUserstatus(AuthSettings<U> settings, AuthSvcJpaContext.userstatus userstatusEnum) {
+    public Userstatus getUserstatus(AuthSettings<U> settings, Enums.userstatus userstatusEnum) {
         
-        final JpaContext factory = WebApp.getInstance().getJpaContext();
+        final JpaObjectFactory puContext = this.getJpaObjectFactory();
         
-        final EnumReferences refs = factory.getEnumReferences();
-
-        final Userstatus userstatus = (Userstatus)refs.getEntity(userstatusEnum);
+        final Userstatus userstatus = puContext.getDaoForSelect(Userstatus.class)
+                .where(Columns.App.userstatus.name(), userstatusEnum.name())
+                .getSingleResultAndClose();
         Objects.requireNonNull(userstatus);
         
         return userstatus;
+    }
+    
+    public JpaObjectFactory getJpaObjectFactory() {
+        return WebApp.getInstance().getJpaObjectFactory();
     }
     
     @Override
@@ -517,3 +522,18 @@ LOG.log(Level.FINER, "Expected: {0}, found: {1}", new Object[]{ this.getClass(),
         this.parameters = parameters;
     }
 }
+/**
+    private EntityController<U, Integer> ec_accessViaGetter;
+    public EntityController<U, Integer> getEntityController() {
+        if(ec_accessViaGetter == null) {
+            ec_accessViaGetter = this.getEntityController(this.getEntityClass());
+        }
+        return ec_accessViaGetter;
+    }
+    
+    public <X> EntityController<X, Integer> getEntityController(Class<X> entityClass) {
+        return WebApp.getInstance().getJpaContext().getEntityController(entityClass, Integer.class);
+    }
+
+ * 
+ */

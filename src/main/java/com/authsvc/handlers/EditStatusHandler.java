@@ -1,12 +1,13 @@
 package com.authsvc.handlers;
 
 import com.authsvc.AuthException;
+import com.authsvc.pu.Enums.userstatus;
+import com.authsvc.pu.Columns;
+import com.authsvc.pu.entities.Userstatus;
+import com.bc.jpa.dao.JpaObjectFactory;
 import java.util.logging.Logger;
-import com.bc.jpa.controller.EntityController;
-import java.util.Collections;
 import java.util.Map;
 import java.util.logging.Level;
-
 
 /**
  * @(#)EditStatusHandler.java   26-Dec-2014 11:52:32
@@ -48,63 +49,97 @@ public abstract class EditStatusHandler<U> extends BaseHandler<U, Object> {
             throw new AuthException("Required: "+statusCol);
         }
         
-        Integer ival;
+        short statusId = -1;
         try{
-            ival = (Integer)oval;
+            statusId = ((Integer)oval).shortValue();
         }catch(ClassCastException e) {
-            ival = Integer.valueOf(oval.toString());
+            try{
+                statusId = Integer.valueOf(oval.toString()).shortValue();
+            }catch(NumberFormatException nfe) { }
+        }
+        
+        final Object statusVal;
+        final Object output;
+        
+        if(statusId != -1) {
+            
+            statusVal = statusId;
+            output = this.execute(where, statusId);
+            
+        }else{
+            
+            final userstatus statusEnum = userstatus.valueOf(oval.toString());
+            
+            statusVal = statusEnum;
+            
+            if(statusEnum != null) {
+                
+                output = this.execute(where, statusEnum);
+                
+            }else{
+                
+                throw new AuthException("Invalid value for: " + statusCol);
+            }
         }
 
-if(LOG.isLoggable(Level.FINER)){
-LOG.log(Level.FINER, 
-"Input status before: {0}, after: {1}",
-new Object[]{ oval,  ival});
-}
+        if(LOG.isLoggable(Level.FINER)){
+            LOG.log(Level.FINER, "Status. input: {0}, outptu: {1}",
+                    new Object[]{oval, statusVal});
+        }
 
-        return this.execute(where, ival.shortValue());
+        return output;
+    }
+
+    public Object execute(Map<String, Object> where, short statusId) throws AuthException {
+        final JpaObjectFactory puContext = this.getJpaObjectFactory();
+        final Userstatus userstatus = puContext.getDaoForSelect(Userstatus.class).findAndClose(statusId);
+        return this.execute(where, userstatus);
     }
     
-    public Object execute(Map<String, Object> where, short status) 
-            throws AuthException {
-        
+    public Object execute(Map<String, Object> where, com.authsvc.pu.Enums.userstatus statusEnum) throws AuthException {
+        final JpaObjectFactory puContext = this.getJpaObjectFactory();
+        final Userstatus userstatus = puContext.getDaoForSelect(Userstatus.class)
+                .where(Columns.App.userstatus.name(), statusEnum.name())
+                .getSingleResultAndClose();
+        return this.execute(where, userstatus);
+    }
+
+    public Object execute(Map<String, Object> where, Userstatus userstatus) throws AuthException {
         
         final String statusCol = this.getStatusColumnName();
-        
-//        EnumReferences refs = WebApp.getInstance().getControllerFactory().getEnumReferences();
-
-        // We do this to ensure the status exists
-//        Userstatus userstatus = (Userstatus)refs.getEntity(statusCol, status);
-//XLogger.getInstance().log(Level.FINER, "Int: {0}, entity: {1}",
-//this.getClass(), status, userstatus);
-        
-//        if(userstatus == null) {
-//            throw new NullPointerException("Invalid value '"+status+"' for required parameter "+statusCol);
-//        }
-        
-//        Map update = Collections.singletonMap(statusCol, userstatus.getUserstatusid());
-        Map update = Collections.singletonMap(statusCol, status);
             
         try{
             
-if(LOG.isLoggable(Level.FINER)){
-LOG.log(Level.FINER, "Where: {0}\nUpdate: {1}", 
-new Object[]{ where,  update});
-}
+            if(LOG.isLoggable(Level.FINER)){
+                LOG.log(Level.FINER, "Where: {0}\nUpdate: {1} = {1}", 
+                        new Object[]{where, statusCol, userstatus});
+            }
 
-            EntityController<U, Integer> ec = this.getEntityController();
-
-            final long count = ec.count(where);
+            final JpaObjectFactory puContext = this.getJpaObjectFactory();
+            
+            final Long count = puContext.getDaoForSelect(Long.class)
+                    .from(this.getEntityClass())
+                    .where(where)
+                    .count()
+                    .getSingleResultAndClose();
             
             if(count == 0) {
                 throw new RuntimeException("Not found. Record with values: "+where);
             }else if(count == 1) {
-                int updateCount = ec.update(where, update);
+                final int updateCount = puContext.getDaoForUpdate(this.getEntityClass())
+                        .where(where)
+                        .set(statusCol, userstatus)
+                        .executeUpdateCommitAndClose();
                 if(updateCount < 1) {
                     throw new AuthException("Update failed");
                 }
-                assert (updateCount == 1) : "Updated "+updateCount+" records, when only one should be updated. Parameters: "+where+", update: "+update;
+                assert (updateCount == 1) : "Updated " + updateCount + 
+                        " records, when only one should be updated. Parameters: " + where + 
+                        ", update: " + statusCol + '=' + userstatus;
             }else{
-                throw new RuntimeException("Trying to update more than one record, when only one should be updated. Parameters: "+where);
+                throw new RuntimeException("Found " + count + 
+                        " records, when only one was expected. entity type: " + 
+                        this.getEntityClass().getName() + ", parameters: " + where);
             }
             
         }catch(Exception e) {
