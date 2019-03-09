@@ -64,7 +64,7 @@ public class RegistrationMailTest {
         final MailConfig mailConfig = WebApp.getInstance().getMailConfig();
         
         final EmailBuilder emailBuilder = new EmailBuilderImpl(mailConfig);
-// database = loosebox_idisc        
+// database = all9janews_newsdb        
 // installationid=1, installationkey=abdb33ee-a09e-4d7d-b861-311ee7061325,
 // feeduserid=1, screenname=user_2, emailAddress=posh.bc@gmail.com
 

@@ -24,6 +24,7 @@ import java.util.logging.Level;
  * @since    2.0
  */
 public abstract class EditStatusHandler<U> extends BaseHandler<U, Object> {
+    
     private transient static final Logger LOG = Logger.getLogger(EditStatusHandler.class.getName());
     
     protected abstract String getStatusColumnName();

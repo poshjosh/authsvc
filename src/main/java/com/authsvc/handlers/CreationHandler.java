@@ -22,6 +22,8 @@ import com.bc.jpa.functions.GetMapForEntity;
 import com.bc.mail.EmailBuilder;
 import com.bc.mail.EmailBuilderImpl;
 import com.bc.security.SecurityTool;
+import java.util.LinkedHashMap;
+import java.util.Set;
 
 /**
  * @(#)CreationHandler.java   26-Nov-2014 12:45:26
@@ -52,48 +54,6 @@ public abstract class CreationHandler<U> extends BaseHandler<U, Map> {
     public String[] getSearchColumnNames() {
         // Since the user is just being created, we can't actually search for the user
         throw new UnsupportedOperationException();
-    }
-    
-    protected Map<String, Object> formatInput(Map<String, Object> input) {
-        
-        SecurityTool sytool = new SecurityTool();
-        
-        // Add an auto-generated user name if none was provided
-        //
-        Object username = input.get(Columns.App.username.name());
-        if(username == null) {
-            input.put(Columns.App.username.name(), sytool.generateUsername());
-        }
-        
-        // Add an auto-generated password if none was provided
-        //
-        String password = (String)input.get(Columns.App.password.name());
-        if(password == null) {
-            int len = WebApp.getInstance().getConfiguration().getInt(ConfigNames.MIN_PASSWORD_LENGTH, 6);
-            input.put(Columns.App.password.name(), sytool.getRandomUUID(len));
-        }
-        
-        return input;
-    }
-    
-    protected Map<String, Object> formatOutput(Map<String, Object> output) {
-        
-        String password = (String)output.get(Columns.App.password.name());
-        if(password != null) {
-            try{
-                char [] decrypted = WebApp.getInstance().getEncryption().decrypt(password);
-                output.put(Columns.App.password.name(), new String(decrypted));
-            }catch(GeneralSecurityException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        
-        // Remove all keys that are not contained in the output names
-        //
-        List<String> names = java.util.Arrays.asList(this.getOutputNames());
-        output.keySet().retainAll(names);
-        
-        return output;
     }
     
     @Override
@@ -145,6 +105,66 @@ public abstract class CreationHandler<U> extends BaseHandler<U, Map> {
         final Map entityMap = new GetMapForEntity(false).apply(this.createdEntity);
         
         return this.formatOutput(entityMap);
+    }
+    
+    protected Map<String, Object> formatInput(Map<String, Object> input) {
+
+        this.trimStringValues(input);
+        
+        SecurityTool sytool = new SecurityTool();
+        
+        // Add an auto-generated user name if none was provided
+        //
+        Object username = input.get(Columns.App.username.name());
+        if(username == null) {
+            input.put(Columns.App.username.name(), sytool.generateUsername());
+        }
+        
+        // Add an auto-generated password if none was provided
+        //
+        String password = (String)input.get(Columns.App.password.name());
+        if(password == null) {
+            int len = WebApp.getInstance().getConfiguration().getInt(ConfigNames.MIN_PASSWORD_LENGTH, 6);
+            input.put(Columns.App.password.name(), sytool.getRandomUUID(len));
+        }
+        
+        return input;
+    }
+    
+    protected Map<String, Object> formatOutput(Map<String, Object> output) {
+
+        String password = (String)output.get(Columns.App.password.name());
+        if(password != null) {
+            try{
+                char [] decrypted = WebApp.getInstance().getEncryption().decrypt(password);
+                output.put(Columns.App.password.name(), new String(decrypted));
+            }catch(GeneralSecurityException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        
+        // Remove all keys that are not contained in the output names
+        //
+        List<String> names = java.util.Arrays.asList(this.getOutputNames());
+        output.keySet().retainAll(names);
+        
+        return output;
+    }
+    
+    protected void trimStringValues(Map<String, Object> output) {
+        final Set<String> keys = output.keySet();
+        final Map<String, Object> update = new LinkedHashMap<>();
+        for(String key : keys) {
+            Object val = output.get(key);
+            if(val instanceof String) {
+                final String sval = ((String)val);
+                final String snew = sval.trim();
+                if(snew.length() < sval.length()) {
+                    update.put(key, snew);
+                }
+            }
+        }
+        output.putAll(update);
     }
     
     protected void sendRegistrationMail() throws AuthException{

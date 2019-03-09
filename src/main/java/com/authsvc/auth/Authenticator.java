@@ -16,7 +16,6 @@ import java.util.logging.Logger;
 import javax.persistence.EntityManager;
 import com.bc.jpa.dao.util.EntityReference;
 import com.bc.jpa.dao.JpaObjectFactory;
-import com.bc.jpa.dao.functions.ExecuteEntityTransaction;
 import com.bc.jpa.dao.functions.GetIdAttribute;
 import com.bc.jpa.dao.util.EntityMemberAccess;
 import java.util.List;
@@ -87,9 +86,7 @@ public abstract class Authenticator<U, T> {
 
                 final JpaObjectFactory jpaContext = WebApp.getInstance().getJpaObjectFactory();
                 
-                final ExecuteEntityTransaction<Optional<T>> executor = 
-                        new ExecuteEntityTransaction<>(jpaContext);
-                executor.apply(editToken).orElseThrow(() -> new AuthException(
+                jpaContext.execute(editToken).orElseThrow(() -> new AuthException(
                         "Database error while trying to authenticate. Please try again later"));
 
                 return true;

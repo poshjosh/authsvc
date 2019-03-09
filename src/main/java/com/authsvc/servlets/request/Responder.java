@@ -27,6 +27,7 @@ import javax.servlet.http.HttpServletResponse;
  * @since    2.0
  */
 public class Responder implements Serializable {
+    
     private transient static final Logger LOG = Logger.getLogger(Responder.class.getName());
 
     public PrintWriter respond(
@@ -43,9 +44,9 @@ public class Responder implements Serializable {
 
             out.println(msg);
             
-if(LOG.isLoggable(Level.FINER)){
-LOG.log(Level.FINER, "Response: {0}", msg);
-}
+            if(LOG.isLoggable(Level.FINER)){
+                LOG.log(Level.FINER, "Response: {0}", msg);
+            }
 
         }else{
 
@@ -84,31 +85,31 @@ LOG.log(Level.FINER, "Response: {0}", msg);
         
         try{
 
-            if(LOG.isLoggable(Level.WARNING)){
-                  LOG.log(Level.WARNING, "Error processing request", t);
+            if(t instanceof ValidationException) {
+                LOG.log(Level.WARNING, "{0}", t.toString());
+                LOG.log(Level.FINE, null, t);
+            }else{
+                LOG.log(Level.WARNING, "Error processing request", t);
             }
 
             int statusCode = this.getErrorCode(t);
             
             String errMsg = this.getErrorMessage(t);
-if(LOG.isLoggable(Level.INFO)){
-LOG.log(Level.INFO, "Error. status code: {0}, message: {1}",
-new Object[]{ statusCode,  errMsg});
-}
+
+            if(LOG.isLoggable(Level.FINE)){
+                LOG.log(Level.FINE, "Error. status code: {0}, message: {1}",
+                    new Object[]{ statusCode,  errMsg});
+            }
             
             out = this.respond(response, statusCode, errMsg);
             
         }catch(IOException e) {
 
-            if(LOG.isLoggable(Level.WARNING)){
-                  LOG.log(Level.WARNING, "Error sending error response", e);
-            }
+            LOG.log(Level.WARNING, "Error sending error response", e);
             
         }catch(RuntimeException e) {
 
-            if(LOG.isLoggable(Level.WARNING)){
-                  LOG.log(Level.WARNING, "Error sending error response", e);
-            }
+            LOG.log(Level.WARNING, "Error sending error response", e);
             
         }finally{
 
